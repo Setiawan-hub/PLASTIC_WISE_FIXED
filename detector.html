@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html>
-
 <head>
 
 <meta charset="UTF-8">
@@ -12,24 +11,21 @@
 <style>
 
 body{
-
-background-color:white;
-text-align:center;
-font-family:Arial;
-
+    background-color:white;
+    text-align:center;
+    margin:0;
 }
 
 #status{
-
-font-size:20px;
-margin-top:20px;
-
+    font-size:22px;
+    font-weight:bold;
+    color:#2E7D32;
+    margin-top:10px;
 }
 
 canvas{
-
-border-radius:20px;
-
+    border-radius:20px;
+    margin-top:10px;
 }
 
 </style>
@@ -39,9 +35,7 @@ border-radius:20px;
 <body>
 
 <h2 id="status">
-
-Memulai...
-
+Memuat model AI...
 </h2>
 
 <div id="webcam-container"></div>
@@ -53,9 +47,15 @@ const URL =
 
 let model;
 let webcam;
-let maxPredictions;
 
-let resultSent = false;
+let hasilSudahDikirim = false;
+
+let kelasTerakhir = "";
+let waktuMulai = 0;
+
+const MIN_CONFIDENCE = 0.95;
+
+const DURASI_STABIL = 1500;
 
 async function init(){
 
@@ -69,10 +69,8 @@ URL + "model.json",
 URL + "metadata.json"
 );
 
-maxPredictions = model.getTotalClasses();
-
 document.getElementById("status").innerHTML =
-"Meminta izin kamera...";
+"Meminta akses kamera...";
 
 webcam = new tmImage.Webcam(
 300,
@@ -84,13 +82,12 @@ await webcam.setup();
 
 await webcam.play();
 
-window.requestAnimationFrame(loop);
-
-document.getElementById("webcam-container")
+document
+.getElementById("webcam-container")
 .appendChild(webcam.canvas);
 
 document.getElementById("status").innerHTML =
-"Model siap";
+"AI siap digunakan";
 
 if(window.AppInventor){
 
@@ -100,7 +97,10 @@ window.AppInventor.setWebViewString(
 
 }
 
+window.requestAnimationFrame(loop);
+
 }
+
 catch(err){
 
 document.getElementById("status").innerHTML =
@@ -109,6 +109,8 @@ document.getElementById("status").innerHTML =
 }
 
 }
+
+
 
 async function loop(){
 
@@ -120,56 +122,99 @@ window.requestAnimationFrame(loop);
 
 }
 
+
+
 async function predict(){
 
-if(resultSent){
-
-return;
-
+if(hasilSudahDikirim){
+    return;
 }
 
 const prediction =
 await model.predict(webcam.canvas);
 
 let bestClass = "";
+
 let bestProb = 0;
 
-for(let i=0;i<maxPredictions;i++){
 
-if(prediction[i].probability > bestProb){
 
-bestProb = prediction[i].probability;
+for(let i=0;i<prediction.length;i++){
 
-bestClass = prediction[i].className;
+    if(prediction[i].probability > bestProb){
+
+        bestProb = prediction[i].probability;
+
+        bestClass = prediction[i].className;
+
+    }
 
 }
 
-}
+
 
 document.getElementById("status").innerHTML =
-bestClass + " : " +
-Math.round(bestProb*100) + "%";
 
-if(bestProb > 0.90){
+bestClass +
+" (" +
+Math.round(bestProb*100) +
+"%)";
 
-resultSent = true;
 
-if(window.AppInventor){
 
-window.AppInventor.setWebViewString(
-bestClass
-);
+if(bestProb >= MIN_CONFIDENCE){
+
+    if(bestClass != kelasTerakhir){
+
+        kelasTerakhir = bestClass;
+
+        waktuMulai = Date.now();
+
+    }
+
+    else{
+
+        let lamaStabil =
+        Date.now() - waktuMulai;
+
+        if(lamaStabil >= DURASI_STABIL){
+
+            hasilSudahDikirim = true;
+
+            webcam.stop();
+
+            document.getElementById("status").innerHTML =
+            "Terdeteksi : " + bestClass;
+
+            if(window.AppInventor){
+
+                window.AppInventor.setWebViewString(
+                bestClass
+                );
+
+            }
+
+        }
+
+    }
+
+}
+
+else{
+
+    kelasTerakhir = "";
+
+    waktuMulai = 0;
 
 }
 
 }
 
-}
+
 
 init();
 
 </script>
 
 </body>
-
 </html>
