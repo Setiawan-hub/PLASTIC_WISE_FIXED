@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+<meta charset="UTF-8">
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+
+<style>
+
+body{
+
+background-color:white;
+text-align:center;
+font-family:Arial;
+
+}
+
+#status{
+
+font-size:20px;
+margin-top:20px;
+
+}
+
+canvas{
+
+border-radius:20px;
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<h2 id="status">
+
+Memulai...
+
+</h2>
+
+<div id="webcam-container"></div>
+
+<script>
+
+const URL =
+"https://teachablemachine.withgoogle.com/models/DGJNCccZv/";
+
+let model;
+let webcam;
+let maxPredictions;
+
+let resultSent = false;
+
+async function init(){
+
+try{
+
+document.getElementById("status").innerHTML =
+"Memuat model AI...";
+
+model = await tmImage.load(
+URL + "model.json",
+URL + "metadata.json"
+);
+
+maxPredictions = model.getTotalClasses();
+
+document.getElementById("status").innerHTML =
+"Meminta izin kamera...";
+
+webcam = new tmImage.Webcam(
+300,
+300,
+true
+);
+
+await webcam.setup();
+
+await webcam.play();
+
+window.requestAnimationFrame(loop);
+
+document.getElementById("webcam-container")
+.appendChild(webcam.canvas);
+
+document.getElementById("status").innerHTML =
+"Model siap";
+
+if(window.AppInventor){
+
+window.AppInventor.setWebViewString(
+"MODEL_READY"
+);
+
+}
+
+}
+catch(err){
+
+document.getElementById("status").innerHTML =
+"ERROR : " + err;
+
+}
+
+}
+
+async function loop(){
+
+webcam.update();
+
+await predict();
+
+window.requestAnimationFrame(loop);
+
+}
+
+async function predict(){
+
+if(resultSent){
+
+return;
+
+}
+
+const prediction =
+await model.predict(webcam.canvas);
+
+let bestClass = "";
+let bestProb = 0;
+
+for(let i=0;i<maxPredictions;i++){
+
+if(prediction[i].probability > bestProb){
+
+bestProb = prediction[i].probability;
+
+bestClass = prediction[i].className;
+
+}
+
+}
+
+document.getElementById("status").innerHTML =
+bestClass + " : " +
+Math.round(bestProb*100) + "%";
+
+if(bestProb > 0.90){
+
+resultSent = true;
+
+if(window.AppInventor){
+
+window.AppInventor.setWebViewString(
+bestClass
+);
+
+}
+
+}
+
+}
+
+init();
+
+</script>
+
+</body>
+
+</html>
